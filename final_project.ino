@@ -1,70 +1,67 @@
 /*  
+ * PINS DEFINITIONS 
+ ***********************************/
+int sensorPin = A0,
+    output,
+    aux = 0,
+    control = 0,
+    relayPin = 8;
+/* END OF PINS DEFINITIONS */
+
+/*  
  * CONFIGURATION 
  ***********************************/
-#define MAXDRY 80
-#define DRYRANGE 50
-#define VALVE 1000
+#define MAXDRY 850
+#define ACCEPTEDRANGE 50
+#define VALVE 20000
+#define COOLDOWN 10000
 /* END OF CONFIGURATION AREA */
 
-/* misc */
-int ledPin = 13,
-    value,
-    aux = 0,
-    control = 0, 
-    flag = 1;
-
-/* soil moisture sensor */
-int moisturePin = A1;
-
-/* water valve */
-int relayPin = 8;
 
 void setup() {
-  Serial.begin(9600);
-  pinMode(ledPin, OUTPUT);
-  pinMode(relayPin, OUTPUT);
-  digitalWrite(relayPin, HIGH); /* keep relay open */
+  Serial.begin(9600); /* initialize serial information */
+  //pinMode(ledPin, OUTPUT); /* for future led feature */
+  pinMode(relayPin, OUTPUT); /* initialize relayPin... */
+  digitalWrite(relayPin, HIGH); /* ...and keep it open */
+  Serial.println("[ - ] Reading sensor data: ");
 }
 
 void loop() {
-  value = analogRead(moisturePin); /* read moisture level */
+  
+  output = analogRead(sensorPin); /* read moisture value */
 
-  if (value < MAXDRY) { /* if soil is dry */
-    if (flag) { /* blink led */
-      digitalWrite(ledPin, HIGH);
-      flag = 0;
-    } else {
-      digitalWrite(ledPin, LOW);
-      flag = 1;
-    }
-    delay(10000); /* wait for some time */
-
-    if (aux > 10) { /* see if is really dry or was just an error */
-      digitalWrite(relayPin, LOW);
-      delay(VALVE); /* keep the valve open */
+  Serial.print("[-] Current moisture: "); /* print some information */
+  Serial.println(output);
+  Serial.print("[-] Aux value: ");
+  Serial.println(aux);
+  Serial.print("[-] Control value: ");
+  Serial.println(control);
+  
+  if (output > MAXDRY) { /* check if need water */
+    if (aux > 10) { /* keep some control against wrong readings */
+      digitalWrite(relayPin, LOW); /* water the plant! */
+      Serial.println("[!] Watering the plant!");
+      delay(VALVE); /* delay to keep watering the plant */
       digitalWrite(relayPin, HIGH);
-      aux = 0;
-    } else {
+      aux = 0; /* control adjust */
+    }else {
+      Serial.println("[!] NEED WATER");
       aux++;
     }
-    
-  } else if (value < (MAXDRY + DRYRANGE)) { /* if the soil is about to became dry */
-    if (flag) { /* blink led */
-      digitalWrite(ledPin, HIGH);
-      flag = 0;
-    } else {
-      digitalWrite(ledPin, LOW);
-      flag = 1;
-    }
-    delay(700);
-
-    control++; /* aux shouldn't be acumulate from errors. we need some control */
-  } else {
+    delay(COOLDOWN); /* wait some time */
+  } else if (output > (MAXDRY - ACCEPTEDRANGE)) { /* if is about to became dry */
+      Serial.println("[!] Your plant is about to need water!");
+      control++;
+      /* blink leds.... */
+      /* some delay. */
+  } else { /* if is far from need water... */
+    //digitalWrite(relayPin, HIGH);
+    delay(COOLDOWN); /* just wait to read againg */
     control++;
   }
 
-  if (control == 5) { /* renew aux value */
-    aux = control = 0;
+  /* aux can accumulate some wrong reading, here i clean it up */
+  if (control == 5) {
+    aux = control = 0;  
   }
-  
 }
